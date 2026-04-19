@@ -5,16 +5,25 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
+import javax.swing.RowFilter;
+import javax.swing.SwingWorker;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -30,9 +39,11 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 	private boolean favorito = false; // Booleano que indica si un contacto es favorito.
 
 	// Constructor que inicializa la clase y configura los escuchadores de eventos para los componentes de la GUI.
-	public logica_ventana(ventana delegado) {
-		  // Asigna la ventana recibida como parámetro a la variable de instancia delegado.
+	public logica_ventana(ventana delegado, persona persona) {
+		// Asigna la ventana recibida como parámetro a la variable de instancia delegado.
+		//se asigna tambien una instancia del contacto para fin de uso de los listeners
 	    this.delegado = delegado;
+	    this.persona = persona;
 	    // Carga los contactos almacenados al inicializar.
 	    cargarContactosRegistrados(); 
 	    // Registra los ActionListener para los botones de la GUI.
@@ -40,10 +51,13 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 	    this.delegado.btn_eliminar.addActionListener(this);
 	    this.delegado.btn_modificar.addActionListener(this);
 	    // Registra los ListSelectionListener para la lista de contactos.
-	    this.delegado.lst_contactos.addListSelectionListener(this);
+	    //this.delegado.lst_contactos.addListSelectionListener(this); --> SE ESTA USANDO EL METODO DE TABLAS
+	    this.delegado.tbl_contactos.getSelectionModel().addListSelectionListener(this);
 	    // Registra los ItemListener para el JComboBox de categoría y el JCheckBox de favoritos.
 	    this.delegado.cmb_categoria.addItemListener(this);
 	    this.delegado.chb_favorito.addItemListener(this);
+	    
+	    inicializarEventos(); //inicializa los listeners correspondientes a las nuevas funcionalidades
 	}
 
 	// Método privado para inicializar las variables con los valores ingresados en la GUI.
@@ -56,20 +70,63 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 
 	// Método privado para cargar los contactos almacenados desde un archivo.
 	private void cargarContactosRegistrados() {
-		 try {
-		        // Lee los contactos almacenados utilizando una instancia de personaDAO.
-		        contactos = new personaDAO(new persona()).leerArchivo();
-		        DefaultListModel modelo = new DefaultListModel();
-		        // Agrega cada contacto al modelo de la lista de contactos de la GUI.
-		        for (persona contacto : contactos) {
-		            modelo.addElement(contacto.formatoLista());
-		        }
-		        // Establece el modelo actualizado en la lista de contactos de la GUI.
-		        delegado.lst_contactos.setModel(modelo);
-		    } catch (IOException e) {
-		        // Muestra un mensaje de error si ocurre una excepción al cargar los contactos.
-		        JOptionPane.showMessageDialog(delegado, "Existen problemas al cargar todos los contactos");
-		    }
+		delegado.barraProgreso.setVisible(true);
+	    delegado.barraProgreso.setValue(0);
+	    delegado.barraProgreso.setString("Cargando base de datos...");
+	    
+	    SwingWorker <Void, Integer> worker = new SwingWorker<Void, Integer>() {
+	    	
+	    	@Override
+	    	protected Void doInBackground() throws Exception {
+	    		try {
+	                contactos = new personaDAO(new persona()).leerArchivo();
+	                
+	                // se simula demora para que la barra se pueda apreciar
+	                for (int i = 0; i <= 100; i += 25) { 
+	                    Thread.sleep(150); 
+	                    publish(i);
+	                }
+	            } catch (IOException e) {
+	                JOptionPane.showMessageDialog(delegado, "Existen problemas al cargar los contactos");
+	                e.printStackTrace();
+	            }
+	            return null;
+	    	}
+	    	
+	    	@Override
+	    	protected void process(List<Integer> chunks) {
+	    		// carga la barra con el utilmo valor
+	    		int progress = chunks.get(chunks.size() - 1);
+	            delegado.barraProgreso.setValue(progress);
+	    	}
+	    	
+	    	@Override
+	        protected void done() {
+	            //al terminar limpia todo 
+	    		delegado.modeloTabla.setRowCount(0); 
+	            if (contactos != null) {
+	                for (persona contacto : contactos) {
+	                    delegado.modeloTabla.addRow(new Object[]{
+	                        contacto.getNombre(),
+	                        contacto.getTelefono(),
+	                        contacto.getEmail(),
+	                        contacto.getCategoria(),
+	                        contacto.isFavorito() ? "Sí" : "No"
+	                    });
+	                }
+	            }
+	            delegado.barraProgreso.setString("Carga completa");
+	            
+	            //la barra se oculta sola despues de un segundo de terminar la tarea
+	            new Timer().schedule(new TimerTask() {
+	                @Override
+	                public void run() {
+	                    delegado.barraProgreso.setVisible(false);
+	                }
+	            }, 1000);
+	        }
+	    };
+		worker.execute();
 	}
 
 	// Método privado para limpiar los campos de entrada en la GUI y reiniciar variables.
@@ -117,25 +174,22 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 	            JOptionPane.showMessageDialog(delegado, "Todos los campos deben ser llenados!!!");
 	        }
 	    } else if (e.getSource() == delegado.btn_eliminar) {
-	        // Lugar para implementar la funcionalidad de eliminar un contacto.
+	        eliminarContacto();
 	    } else if (e.getSource() == delegado.btn_modificar) {
-	        // Lugar para implementar la funcionalidad de modificar un contacto.
+	        editarContacto();
 	    }
 	}
 
 	// Método que maneja los eventos de selección en la lista de contactos.
 	@Override
 	public void valueChanged(ListSelectionEvent e) {
-		// Obtiene el índice del elemento seleccionado en la lista de contactos.
-	    int index = delegado.lst_contactos.getSelectedIndex();
-	    // Verifica si se ha seleccionado un índice válido en la lista.
-	    if (index != -1) {
-	        // Si el índice es mayor que cero (no se seleccionó la primera fila),
-	        // carga los detalles del contacto seleccionado.
-	        if (index > 0) {
+		// manejo de idempotencia para el evento del click
+		if (!e.getValueIsAdjusting()) { 
+	        int index = delegado.getIndiceContactoSeleccionado();
+	        if (index >= 0 && contactos != null && index < contactos.size()) {
 	            cargarContacto(index);
 	        }
-	    } 
+	    }
 	}
 
 	// Método privado para cargar los datos del contacto seleccionado en los campos de la GUI.
@@ -164,6 +218,131 @@ public class logica_ventana implements ActionListener, ListSelectionListener, It
 	        // Verifica si el evento proviene del JCheckBox de favorito.
 	        favorito = delegado.chb_favorito.isSelected();
 	        // Obtiene el estado seleccionado del JCheckBox y actualiza el estado de favorito en la variable "favorito".
+	    }
+	}
+	
+	//se encarga de los eventos relacionados con atajos de teclado y menu desplegable
+	private void inicializarEventos() {
+		this.delegado.addEditarListener(e -> editarContacto());
+		this.delegado.addEliminarListener(e -> eliminarContacto());
+		this.delegado.addExportarListener(e -> exportarContactos());
+		
+		// realiza un filtrado en tiempo real 
+		this.delegado.txt_buscar.addKeyListener(new KeyAdapter() {
+	        public void keyReleased(KeyEvent evt) {
+	            String texto = delegado.txt_buscar.getText();
+	            if (texto.trim().length() == 0) {
+	                delegado.sorter.setRowFilter(null);
+	            } else {
+	                // permite ignorar mayusculas y minusculas
+	                delegado.sorter.setRowFilter(RowFilter.regexFilter("(?i)" + texto));
+	            }
+	        }
+	    });
+		
+		// permite usar los atajos de teclado
+		this.delegado.tbl_contactos.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyReleased(KeyEvent e) {
+				if (e.getKeyCode() == KeyEvent.VK_DELETE) {
+					eliminarContacto();
+				}
+				else if (e.getKeyCode() == KeyEvent.VK_F2) {
+					editarContacto();
+				}
+				else if (e.getKeyCode() == KeyEvent.VK_S && e.isControlDown() && e.isShiftDown()) {
+					exportarContactos();
+				}
+			}
+		});
+	}
+	
+	//logica de eliminacion de contacto
+	private void eliminarContacto() {
+		int index = delegado.getIndiceContactoSeleccionado();
+	    
+	    if (index != -1) {
+	        int confirmar = JOptionPane.showConfirmDialog(delegado, "¿Seguro que deseas eliminar este contacto?", "Confirmar", JOptionPane.YES_NO_OPTION);
+	        if (confirmar == JOptionPane.YES_OPTION) {
+	            contactos.remove(index); // se elimina de la lista
+	            try {
+	                //sobreescribe el archivo creado en el DAO
+	                new personaDAO(new persona()).actualizarContactos(contactos);
+	                limpiarCampos(); 
+	                delegado.mostrarMensaje("Contacto eliminado correctamente.");
+	            } catch (IOException ex) {
+	                delegado.mostrarMensaje("Error al eliminar el contacto en el archivo.");
+	                ex.printStackTrace();
+	            }
+	        }
+	    } else {
+	        delegado.mostrarMensaje("Seleccione un contacto para eliminarlo.");
+	    }
+    }
+	
+	//logica de edicion de contacto
+	private void editarContacto() {
+	    int index = delegado.getIndiceContactoSeleccionado();
+	    
+	    if (index != -1) {
+	        incializacionCampos(); 
+	        
+	        if ((!nombres.equals("")) && (!telefono.equals("")) && (!email.equals(""))) {
+	            persona p = contactos.get(index);
+	            p.setNombre(nombres);
+	            p.setTelefono(telefono);
+	            p.setEmail(email);
+	            p.setCategoria(categoria);
+	            p.setFavorito(favorito);
+
+	            try {
+	                new personaDAO(new persona()).actualizarContactos(contactos);
+	                limpiarCampos();
+	                delegado.mostrarMensaje("Contacto modificado correctamente.");
+	            } catch (IOException ex) {
+	                delegado.mostrarMensaje("Error al modificar el contacto.");
+	                ex.printStackTrace();
+	            }
+	        } else {
+	            delegado.mostrarMensaje("Todos los campos deben estar llenos para modificar.");
+	        }
+	    } else {
+	        delegado.mostrarMensaje("Seleccione un contacto para editar su información.");
+	    }
+	}
+	
+	// funcion para exportar archivo CSV
+	private void exportarContactos() {
+	    if (contactos == null || contactos.isEmpty()) {
+	        delegado.mostrarMensaje("No hay contactos para exportar.");
+	        return;
+	    }
+
+	    // abre una ventana que permite al usuario elegir donde guardar el archivo
+	    JFileChooser fileChooser = new JFileChooser();
+	    fileChooser.setDialogTitle("Exportar a CSV");
+	    
+	    int seleccion = fileChooser.showSaveDialog(delegado);
+	    if (seleccion == JFileChooser.APPROVE_OPTION) {
+	        File archivoDestino = fileChooser.getSelectedFile();
+	        String ruta = archivoDestino.getAbsolutePath();
+	        
+	        // fuerza al archivo a guardarse con la extensión correcta
+	        if (!ruta.toLowerCase().endsWith(".csv")) {
+	            ruta += ".csv";
+	        }
+
+	        try (FileWriter fw = new FileWriter(ruta)) {
+	            // Cabecera del archivo
+	            fw.write("NOMBRE;TELEFONO;EMAIL;CATEGORIA;FAVORITO\n");
+	            for (persona p : contactos) {
+	                fw.write(p.datosContacto() + "\n");
+	            }
+	            delegado.mostrarMensaje("Contactos exportados con éxito a:\n" + ruta);
+	        } catch (IOException ex) {
+	            delegado.mostrarMensaje("Error al intentar exportar el archivo CSV.");
+	            ex.printStackTrace();
+	        }
 	    }
 	}
 }

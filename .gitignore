@@ -1,4 +1,18 @@
-/bin/
-/.settings/
+# Archivos compilados
+*.class
+bin/
+build/
+out/
+
+# Archivos de configuración de Eclipse
 .classpath
 .project
+.settings/
+
+# Archivos del sistema operativo 
+.DS_Store
+Thumbs.db
+
+# Archivos temporales o logs
+*.log
+*.tmp

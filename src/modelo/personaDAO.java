@@ -22,29 +22,26 @@ public class personaDAO {
 		prepararArchivo();
 	}
 	
-	// Método privado para gestionar el archivo utilizando la clase File
+	// Método privado para gestionar el archivo utilizando la clase File (MODIFICADO, GENERABA EXCEPCION FILENOTFOUND)
 	private void prepararArchivo() {
-		// Verifica si el directorio existe
-		if (!archivo.exists()) { // Si el directorio no existe, se crea
-			archivo.mkdir();
+		File carpeta = new File("c:/gestionContactos");
+		if (!carpeta.exists()) {
+			carpeta.mkdirs(); 
 		}
 		
-		// Accede al archivo "datosContactos.csv" dentro del directorio especificado
-		archivo = new File(archivo.getAbsolutePath(), "datosContactos.csv");
-		// Verifica si el archivo existe
-		if (!archivo.exists()) { // Si el archivo no existe, se crea
+		archivo = new File(carpeta, "datosContactos.csv");
+		
+		if (!archivo.exists()) {
 			try {
 				archivo.createNewFile();
-				//Prepara el encabezado para el archivo de csv
-				String encabezado=String.format("%s;%s;%s;%s;%s", "NOMBRE", "TELEFONO", "EMAIL", "CATEGORIA","FAVORITO");
-//				persona.datosContacto(encabezado);
-				escribir(encabezado);
+				escribir("NOMBRE;TELEFONO;EMAIL;CATEGORIA;FAVORITO");
 			} catch (IOException e) {
-				// Maneja la excepción de entrada/salida
 				e.printStackTrace();
 			}
 		}
 	}
+	
+	
 	private void escribir(String texto){
 		// Prepara el archivo para escribir en la última línea
 		FileWriter escribir;
@@ -73,7 +70,10 @@ public class personaDAO {
 	}
 	
 	// Método público para leer los datos del archivo
-	public List<persona> leerArchivo() throws IOException {
+	
+	// METODO REEMPLAZADO POR PROVOCAR FALLOS AL MOMENTO DE REALIZAR CRUD DE CONTACTOS
+	
+	/*public List<persona> leerArchivo() throws IOException {
 		// Cadena que contendrá toda la data del archivo
 		String contactos = "";
 		// Abre el archivo para leer
@@ -102,18 +102,55 @@ public class personaDAO {
 		leer.close();
 		// Retorna la lista de personas
 		return personas;
-	}
+	}*/
 	
-	// Método público para guardar los contactos modificados o eliminados
+	// Método público para leer los datos del archivo (NUEVO METODO)
+		public List<persona> leerArchivo() throws IOException {
+			String contactos = "";
+			if (!archivo.exists()) return new ArrayList<>(); // devuelve una lista vacia si el archivo no existe
+			
+			FileReader leer = new FileReader(archivo.getAbsolutePath());
+			int c;
+			while ((c = leer.read()) != -1) { 
+				contactos += String.valueOf((char) c);
+			}
+			leer.close();
+			
+			String[] datos = contactos.split("\n");
+			List<persona> personas = new ArrayList<>();
+			
+			for (int i = 0; i < datos.length; i++) {
+				String linea = datos[i].trim();
+				if (linea.isEmpty()) continue; // las lineas en blanco se omiten aca
+				
+				// permite omitir la primera linea
+				//error del metodo anterior: creaba la primera linea como una entidad de manera erronea
+				if (i == 0 && linea.startsWith("NOMBRE")) continue; 
+				
+				String[] partes = linea.split(";");
+				if (partes.length >= 5) { 
+					persona p = new persona();
+					p.setNombre(partes[0]); 
+					p.setTelefono(partes[1]); 
+					p.setEmail(partes[2]); 
+					p.setCategoria(partes[3]); 
+					p.setFavorito(Boolean.parseBoolean(partes[4])); 
+					personas.add(p);
+				}
+			}
+			return personas;
+		}
+	
+	// Método público para guardar los contactos modificados o eliminados (MODIFICADO)
 	public void actualizarContactos(List<persona> personas) throws IOException {
-		// Borra los datos del archivo
+		//borra el archivo y lo recrea insertando el encabezado una sola vez
 		archivo.delete();
-		// Recorre los elementos de la lista
+		prepararArchivo();
+		
+		// usa una sola instancia del dao para recorrer el array y actualizar la informacion en memoria 
 		for (persona p : personas) {
-			// Instancia el DAO
-			new personaDAO(p);
-			// Escribe en el archivo
-			escribirArchivo();
+			this.persona = p; 
+			escribirArchivo(); 
 		}
 	}
 }
