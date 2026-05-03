@@ -9,6 +9,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -71,6 +72,7 @@ public class ventana extends JFrame {
 	public JProgressBar barraProgreso; 
 	public TableRowSorter<DefaultTableModel> sorter;
 	public JLabel lbl_titulo_principal, lbl_etiqueta1, lbl_etiqueta2, lbl_etiqueta3, lbl_etiqueta4, lblIdioma;
+	public JButton btn_exportar;
 
 	/**
 	 * Launch the application.
@@ -201,7 +203,7 @@ public class ventana extends JFrame {
 		panelFormulario.add(new JLabel("")); 
 		panelFormulario.add(new JLabel(""));
 		
-		JPanel panelBotones = new JPanel(new GridLayout(3, 1, 0, 10));
+		JPanel panelBotones = new JPanel(new GridLayout(4, 1, 0, 10));
 		panelBotones.setBorder(new EmptyBorder(0, 20, 0, 0));
 		
 		btn_add = new JButton("AGREGAR");
@@ -219,10 +221,28 @@ public class ventana extends JFrame {
 		btn_eliminar.setForeground(Color.WHITE);
 		btn_eliminar.setFont(new Font("Tahoma", Font.PLAIN, 15));
 		
+		btn_exportar = new JButton("EXPORTAR");
+		btn_exportar.setFont(new Font("Tahoma", Font.PLAIN, 15));		
+		btn_exportar.setForeground(new Color(16, 185, 129)); 
+		btn_exportar.putClientProperty("JButton.buttonType", "outlined");
+		btn_exportar.putClientProperty("JButton.outlineColor", new Color(16, 185, 129));
+		
+		//FLATLAF PERMITE INSERTAR DIRECTAMENTE PROPIEDADES CSS A LOS COMPONENTES
+		//ESTA LINEA PERMITE EL REDONDEADO Y DELINEADO DEL BOTON EXPORTAR
+		//BORRARLA CAUSARA QUE EL BOTON NO SE REDONDEE O PIERDA EL DELINEADO
+		btn_exportar.putClientProperty("FlatLaf.style", 
+				"borderColor: #10B981;" +        
+				"hoverBorderColor: #059669;" +   
+				"focusedBorderColor: #10B981;" +
+				"borderWidth: 2"                 
+			);
+		
 		try {
 		    btn_add.setIcon(new ImageIcon(getClass().getResource("/img/add.png")));
 		    btn_modificar.setIcon(new ImageIcon(getClass().getResource("/img/edit.png")));
 		    btn_eliminar.setIcon(new ImageIcon(getClass().getResource("/img/delete.png")));
+		    btn_eliminar.setIcon(new ImageIcon(getClass().getResource("/img/export.png")));
+		    
 		} catch (Exception e) {
 		    System.out.println("No se encontraron los iconos de los botones");
 		}
@@ -231,6 +251,7 @@ public class ventana extends JFrame {
 		panelBotones.add(btn_add);
 		panelBotones.add(btn_modificar);
 		panelBotones.add(btn_eliminar);
+		panelBotones.add(btn_exportar);
 		
 		panelSuperior.add(panelFormulario, BorderLayout.CENTER);
 		panelSuperior.add(panelBotones, BorderLayout.EAST);
@@ -332,6 +353,9 @@ public class ventana extends JFrame {
 
 	public void addExportarListener(ActionListener listener) {
 	    itemExportar.addActionListener(listener);
+	    if(btn_exportar != null) {
+	        btn_exportar.addActionListener(listener);
+	    }
 	}
 	
 	// OBTIENE EL DATO DEL CONTACTO SELECCIONADO
@@ -384,6 +408,7 @@ public class ventana extends JFrame {
 		if(btn_add != null) btn_add.setText(mensajes.getString("btn.agregar"));
 		if(btn_modificar != null) btn_modificar.setText(mensajes.getString("btn.modificar"));
 		if(btn_eliminar != null) btn_eliminar.setText(mensajes.getString("btn.eliminar"));
+		if(btn_exportar != null) btn_exportar.setText(mensajes.getString("btn.exportar"));
 		
 		if(itemEliminar != null) itemEliminar.setText(mensajes.getString("menu.eliminar"));
 		if(itemEditar != null) itemEditar.setText(mensajes.getString("menu.editar"));
